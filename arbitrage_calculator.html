@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎯 LOF基金套利计算器（普通LOF专用）</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Helvetica Neue', Arial, 'Microsoft YaHei', sans-serif;
+            max-width: 100vw;
+            margin: 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.5;
+        }
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            font-size: 1.4rem;
+            margin-top: 0;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        .note {
+            background-color: #fff8e6;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            border-radius: 0 4px 4px 0;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #34495e;
+            font-size: 0.95rem;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
+        button {
+            background: linear-gradient(to right, #4CAF50, #388E3C);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(76, 175, 80, 0.3);
+        }
+        button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+        }
+        .result {
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid #4CAF50;
+        }
+        .result p {
+            margin: 8px 0;
+            font-size: 1rem;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #c0392b;
+        }
+        .small-red-text {
+            font-size: 0.85rem;
+            color: #c0392b;
+            margin-top: 10px;
+            padding-left: 8px;
+            border-left: 2px solid #e74c3c;
+        }
+        .small-red-text strong {
+            color: #c0392b;
+        }
+        .profit-positive {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .profit-negative {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🎯 LOF基金套利计算器（普通LOF专用）</h1>
+        <p class="subtitle">基于场内申购（T日）→ 二级市场卖出（T+2日）的套利逻辑</p>
+        
+        <div class="note">
+            <strong>重要提醒：</strong> 本计算器默认计算普通LOF的T+2日卖出（QDII-LOF需T+3日卖出，说明已标注）。
+        </div>
+
+        <div class="form-group">
+            <label for="amount">限额金额 (元)</label>
+            <input type="number" id="amount" placeholder="例如：100" value="100" min="1">
+        </div>
+
+        <div class="form-group">
+            <label for="feeRate">券商佣金率 (‰)</label>
+            <input type="number" id="feeRate" placeholder="例如：0.5" value="0.5" step="0.1" min="0.1">
+        </div>
+
+        <div class="form-group">
+            <label for="minFee">最低佣金 (元)</label>
+            <input type="number" id="minFee" placeholder="例如：5" value="5" min="1">
+        </div>
+
+        <div class="form-group">
+            <label for="nav">认购成功净值</label>
+            <input type="number" id="nav" placeholder="例如：2.30" value="2.30" step="0.01" min="0.01">
+        </div>
+
+        <div class="form-group">
+            <label for="price">认购成功日二级市场收盘价</label>
+            <input type="number" id="price" placeholder="例如：2.80" value="2.80" step="0.01" min="0.01">
+        </div>
+
+        <button onclick="calculate()">📊 计算保本数据</button>
+
+        <div id="result" class="result" style="display: none;">
+            <p>认购成本：<span id="cost" class="highlight"></span> 元</p>
+            <p>返还现金：<span id="refund" class="highlight"></span> 元</p>
+            <p>实际份额：<span id="shares" class="highlight"></span> 份</p>
+            <p>当天账面溢价：<span id="premium" class="highlight"></span> %</p>
+            <p class="profit-positive">当天套利浮盈：<span id="profit" class="highlight"></span> 元</p>
+            <p>T+2日保本二级市场价格：<span id="breakEven" class="highlight"></span> 元/份</p>
+            <p class="small-red-text">
+                说明：此计算基于在券商APP中直接操作“场内申购”的路径（仅适用于 LOF 基金，包括QDII-LOF）<br><br>
+                1、使用证券账户的现金，在T日证券APP的“场内基金”界面，选择“申购”买入基金份额。<br><br>
+                2、T+2日使用APP的股票/场内基金交易界面选择"卖出"，在二级市场卖出。<br><br>
+                3、需要特别注意，如果是QDII-LOF基金的到账时间为T+2日，T+3日可交易卖出（与普通LOF不同）。<br><br>
+                4、ETF 基金普遍采用一揽子股票申购，不支持现金场内申购，本计算器不适用。
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const feeRatePercent = parseFloat(document.getElementById('feeRate').value);
+            const minFee = parseFloat(document.getElementById('minFee').value);
+            const nav = parseFloat(document.getElementById('nav').value);
+            const currentPrice = parseFloat(document.getElementById('price').value);
+
+            if (isNaN(amount) || isNaN(feeRatePercent) || isNaN(minFee) || isNaN(nav)) {
+                alert("请填写所有数值（必须为数字）");
+                return;
+            }
+
+            if (amount < 1 || feeRatePercent < 0.1 || minFee < 1 || nav <= 0 || currentPrice <= 0) {
+                alert("请确保数值合理：金额≥1元，佣金率≥0.1‰，最低佣金≥1元，净值>0");
+                return;
+            }
+
+            const feeRate = feeRatePercent / 10000;
+            let shares = Math.floor(amount / nav);
+
+            if (shares === 0) {
+                alert("错误：当前净值过高，限额金额不足购买1份基金。");
+                return;
+            }
+
+            const cost = shares * nav;
+            const refund = amount - cost;
+            const premiumToday = ((currentPrice - nav) / nav) * 100;
+            const profit = shares * (currentPrice - nav); // 新增：当天套利浮盈
+            const sellValueEstimate = shares * currentPrice;
+            const feeEstimate = Math.max(minFee, sellValueEstimate * feeRate);
+            const breakEvenPrice = (cost + feeEstimate) / shares;
+
+            // 根据浮盈正负设置颜色
+            const profitElement = document.getElementById('profit');
+            if (profit >= 0) {
+                profitElement.className = 'highlight profit-positive';
+                profitElement.textContent = profit.toFixed(2);
+            } else {
+                profitElement.className = 'highlight profit-negative';
+                profitElement.textContent = profit.toFixed(2);
+            }
+
+            document.getElementById('cost').textContent = cost.toFixed(2);
+            document.getElementById('refund').textContent = refund.toFixed(2);
+            document.getElementById('shares').textContent = shares;
+            document.getElementById('premium').textContent = premiumToday.toFixed(2);
+            document.getElementById('breakEven').textContent = breakEvenPrice.toFixed(3);
+
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
